@@ -1,0 +1,18 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+#繪圖中文字型
+plt.rcParams["font.sans-serif"] = "mingliu"
+plt.rcParams["axes.unicode_minus"] = False
+
+df = pd.read_excel('joblistUP.xlsx')
+city = ['台北', '新北', '宜蘭','桃園','新竹','苗栗', '南投','台中','彰化', '嘉義','雲林','台南', '高雄','屏東']  #擁有縣市
+citycount = []  #存工作職缺數量的串列
+for i in range(len(city)):
+    df1 = df[df['上班地點'].str.contains(city[i])]  #取出包含指定地點的資料
+    citycount.append(len(df1))
+
+ser = pd.Series(citycount, index=city)  #串列轉Series
+print(ser)
+plt.axis('off')
+ser.plot(kind='pie', title='資訊職缺數量', figsize=(6, 6))  #繪製圓餅圖
