@@ -1,0 +1,84 @@
+import pandas as pd
+import re, time, requests
+from selenium import webdriver
+from bs4 import BeautifulSoup
+
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36'}
+
+# 查詢的關鍵字
+my_params = {'ro': '1',  # 限定全職的工作，不限定輸入0
+             'keyword': '資訊',
+             'isnew': '30',  # 只要最近一個月有更新的過的職缺
+             'mode': 'l'}  # 清單的瀏覽模式
+
+url = requests.get('https://www.104.com.tw/jobs/search/?' , my_params, headers = headers).url
+driver = webdriver.Chrome()
+driver.get(url)
+
+for i in range(20):
+    driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')
+    time.sleep(0.6)
+
+k = 1
+while k != 0:
+    try:
+        driver.find_elements_by_class_name("js-more-page", )[-1].click()
+        print('Click 手動載入, ' + '載入第' + str(15 + k) + '頁')
+        k = k + 1
+        time.sleep(1)
+    except:
+        k = 0
+        print('No more Job')
+
+soup = BeautifulSoup(driver.page_source, 'html.parser')
+List = soup.findAll('a', {'class': 'js-job-link'})
+print('共有 ' + str(len(List)) + ' 筆資料')
+
+
+def bind(cate):
+    k = []
+    for i in cate:
+        if len(i.text) > 0:
+            k.append(i.text)
+    return str(k)
+
+JobList = pd.DataFrame()
+
+i = 0
+while i < len(List):
+
+    content = List[i]
+
+    try:
+        resp = requests.get('https://' + content.attrs['href'].strip('//'))
+        soup2 = BeautifulSoup(resp.text,'html.parser')
+        df = pd.DataFrame(
+            data = [{
+                '公司名稱':soup2.find('a', {'class':'cn'}).text,
+                '工作職稱':content.attrs['title'],
+                '工作內容':soup2.find('p').text,
+                '職務類別':bind(soup2.findAll('dd', {'class':'cate'})[0].findAll('span')),
+                '工作待遇':soup2.find('dd', {'class':'salary'}).text.split('\n\n',2)[0].replace(' ',''),
+                '工作性質':soup2.select('div > dl > dd')[2].text,
+                '上班地點':soup2.select('div > dl > dd')[3].text.split('\n\n',2)[0].split('\n',2)[1].replace(' ',''),
+                '學歷要求':soup2.select('div.content > dl > dd')[12].text,
+                '工作經歷':soup2.select('div.content > dl > dd')[11].text,
+                '語文條件':soup2.select('div.content > dl > dd')[14].text,
+                '擅長工具':soup2.select('div.content > dl > dd')[15].text,
+                '工作技能':soup2.select('div.content > dl > dd')[16].text,
+                '其他條件':soup2.select('div.content > dl > dd')[17].text,
+                '科系要求':soup2.select('div.content > dl > dd')[13].text,
+                '連結路徑':'https://' + content.attrs['href'].strip('//')}],
+            columns = ['公司名稱','工作職稱','工作內容','職務類別','工作待遇','工作性質','學歷要求','工作經歷','語文條件','擅長工具',
+                       '工作技能','其他條件','科系要求','連結路徑'])
+        JobList = JobList.append(df, ignore_index=True)
+        i += 1
+        print("Success and Crawl Next 目前正在爬第" + str(i) + "個職缺資訊")
+
+    except:
+        print("Fail and Try Again!")
+
+JobList
+
+JobList.to_excel('C:/Users/eseline/Desktop/JobList2.xlsx', encoding='cp950')
